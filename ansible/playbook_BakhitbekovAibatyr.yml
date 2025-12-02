@@ -1,0 +1,44 @@
+---
+- name: Deploy Todo App container with Docker
+  hosts: webservers
+  become: true
+  become_method: sudo
+  vars:
+    image_name: aibatyr/todo-app
+    image_tag: "1.0"
+    container_name: todo-app
+    host_port: 8081
+    container_port: 8080
+
+  tasks:
+    - name: Ensure curl is installed
+      apt:
+        name: curl
+        state: present
+        update_cache: yes
+
+    - name: Install Docker using official Docker script
+      shell: |
+        curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Stop old container if it exists
+      shell: docker rm -f {{ container_name }} || true
+      failed_when: false   # даже если команды нет/контейнера нет — не считать ошибкой
+
+    - name: Pull application image from Docker Hub
+      shell: docker pull {{ image_name }}:{{ image_tag }}
+
+    - name: Run Todo app container
+      shell: |
+        docker run -d \
+          --name {{ container_name }} \
+          -p {{ host_port }}:{{ container_port }} \
+          {{ image_name }}:{{ image_tag }}
