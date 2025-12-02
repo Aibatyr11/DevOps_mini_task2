@@ -1,7 +1,5 @@
-# === Этап 1. Сборка jar внутри контейнера (builder) ===
 FROM maven:3.9-eclipse-temurin-17-alpine AS builder
 
-# Рабочая папка внутри контейнера
 WORKDIR /app
 
 # Сначала копируем pom.xml и скачиваем зависимости (кэшируется)
