@@ -27,7 +27,6 @@ pipeline {
         docker {
           image 'docker:27-cli'
           args "-v /var/run/docker.sock:/var/run/docker.sock"
- вижenkins -w ${WORKSPACE} не нужно, WORKSPACE может быть пустой на старте
         }
       }
       steps {
