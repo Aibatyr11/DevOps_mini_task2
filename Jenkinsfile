@@ -4,7 +4,6 @@ pipeline {
   environment {
     IMAGE_NAME = "aibatyr/todo-app"
     IMAGE_TAG  = "1.0"
-    DOCKER_CONFIG = "${WORKSPACE}/.docker"
   }
 
   stages {
@@ -27,14 +26,17 @@ pipeline {
       agent {
         docker {
           image 'docker:27-cli'
-          // важное: подключаем сокет и рабочую папку с правами
-          args "-v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE}"
+          args "-v /var/run/docker.sock:/var/run/docker.sock"
+ вижenkins -w ${WORKSPACE} не нужно, WORKSPACE может быть пустой на старте
         }
       }
       steps {
-        sh 'mkdir -p "$DOCKER_CONFIG"'
-        sh 'docker version'
-        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr ."
+        sh '''
+          export DOCKER_CONFIG="$(pwd)/.docker"
+          mkdir -p "$DOCKER_CONFIG"
+          docker version
+          docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr .
+        '''
       }
     }
 
@@ -43,11 +45,11 @@ pipeline {
       agent {
         docker {
           image 'docker:27-cli'
-          args "-v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE}"
+          args "-v /var/run/docker.sock:/var/run/docker.sock"
         }
       }
       steps {
-        sh 'mkdir -p "$DOCKER_CONFIG"'
+        sh 'export DOCKER_CONFIG="$(pwd)/.docker"; mkdir -p "$DOCKER_CONFIG"'
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
           sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
           sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
