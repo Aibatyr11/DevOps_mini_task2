@@ -26,8 +26,8 @@ pipeline {
       agent {
         docker {
           image 'docker:27-cli'
-          // ВАЖНО: отключаем entrypoint и задаём HOME/DOCKER_CONFIG в writable место
-          args "--entrypoint='' -v /var/run/docker.sock:/var/run/docker.sock -e HOME=${WORKSPACE} -e DOCKER_CONFIG=${WORKSPACE}/.docker"
+          // entrypoint выключаем, HOME/Docker config делаем writable
+          args "--entrypoint='' -v /var/run/docker.sock:/var/run/docker.sock -e HOME=/tmp -e DOCKER_CONFIG=/tmp/.docker"
         }
       }
       steps {
@@ -45,7 +45,7 @@ pipeline {
       agent {
         docker {
           image 'docker:27-cli'
-          args "--entrypoint='' -v /var/run/docker.sock:/var/run/docker.sock -e HOME=${WORKSPACE} -e DOCKER_CONFIG=${WORKSPACE}/.docker"
+          args "--entrypoint='' -v /var/run/docker.sock:/var/run/docker.sock -e HOME=/tmp -e DOCKER_CONFIG=/tmp/.docker"
         }
       }
       steps {
