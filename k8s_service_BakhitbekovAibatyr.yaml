@@ -10,6 +10,6 @@ spec:
     app: todo-app
   ports:
     - name: http
-      port: 8080        # порт сервиса внутри кластера
-      targetPort: 8080  # порт контейнера
-      nodePort: 30081   # внешний порт ноды (будем заходить сюда)
+      port: 8080        
+      targetPort: 8080  
+      nodePort: 30081   

@@ -4,17 +4,21 @@ WORKDIR /app
 
 COPY pom.xml .
 RUN mvn -q dependency:go-offline
+<<<<<<< HEAD
 
+=======
+>>>>>>> 42dc1206dd834e3e93e7096b5e9a18643655bbd1
 COPY src ./src
-
-# Собираем jar (получим target/todo-app.jar)
 RUN mvn -q clean package -DskipTests
 
 FROM eclipse-temurin:17-jdk-alpine
-
 WORKDIR /app
+<<<<<<< HEAD
 
 
 COPY --from=builder /app/target/todo-app.jar app.jar
 
+=======
+COPY --from=builder /app/target/todo-app.jar app.jar
+>>>>>>> 42dc1206dd834e3e93e7096b5e9a18643655bbd1
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

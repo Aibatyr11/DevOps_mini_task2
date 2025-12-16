@@ -12,7 +12,6 @@ public class TaskController {
 
     @GetMapping("/tasks")
     public List<Map<String, Object>> getTasks() {
-        // Простой список задач "в памяти", без БД
         return Arrays.asList(
                 Map.of("id", 1, "title", "Buy milk", "done", false),
                 Map.of("id", 2, "title", "Do homework", "done", true),
