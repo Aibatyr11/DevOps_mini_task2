@@ -45,7 +45,6 @@ pipeline {
       agent {
         docker {
           image 'docker:27-cli'
-          // важное: выключаем entrypoint и даём root, чтобы не было ошибок прав на папки
           args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
           reuseNode true
         }
@@ -82,6 +81,12 @@ pipeline {
       steps {
         sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
       }
+      post {
+        always {
+          // тут есть agent -> sh работает
+          sh 'docker logout || true'
+        }
+      }
     }
 
     stage('Deploy (docker compose)') {
@@ -96,7 +101,6 @@ pipeline {
         }
       }
       steps {
-        // compose может быть не установлен в docker:*-cli, поэтому ставим плагин
         sh 'apk add --no-cache docker-cli-compose || true'
         sh 'docker compose version || true'
         sh 'docker compose pull || true'
@@ -107,12 +111,8 @@ pipeline {
   }
 
   post {
-    always {
-      // безопасно, даже если не логинился
-      sh 'docker logout || true'
-    }
     success {
-      echo '✅ Part 3 done: image built + pushed (+ deployed if compose exists)'
+      echo '✅ Pipeline success: image built + tested + pushed (+ deployed if compose exists)'
     }
     failure {
       echo '❌ Pipeline failed'
