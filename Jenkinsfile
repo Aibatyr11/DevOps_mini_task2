@@ -1,5 +1,5 @@
 pipeline {
-  agent none
+  agent any
 
   environment {
     IMAGE_NAME = "aibatyr/todo-app"
@@ -7,59 +7,51 @@ pipeline {
   }
 
   stages {
-
     stage('Build') {
-      agent { docker { image 'maven:3.9-eclipse-temurin-17' } }
       steps {
-        sh 'mvn -B clean package -DskipTests'
+        sh 'mvn -B -Djava.net.preferIPv4Stack=true clean package'
       }
     }
 
     stage('Test') {
-      agent { docker { image 'maven:3.9-eclipse-temurin-17' } }
       steps {
-        sh 'mvn -B test'
+        sh 'mvn -B -Djava.net.preferIPv4Stack=true test'
       }
     }
 
     stage('Docker Build') {
-      agent {
-        docker {
-          image 'docker:27-cli'
-          // entrypoint выключаем, HOME/Docker config делаем writable
-          args "--entrypoint='' -v /var/run/docker.sock:/var/run/docker.sock -e HOME=/tmp -e DOCKER_CONFIG=/tmp/.docker"
-        }
-      }
       steps {
-        sh '''
-          set -e
-          mkdir -p "$DOCKER_CONFIG"
-          docker version
-          docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr .
-        '''
+        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr ."
       }
     }
 
-    stage('(Optional) Docker Push') {
-      when { expression { return env.PUSH_IMAGE == 'true' } }
-      agent {
-        docker {
-          image 'docker:27-cli'
-          args "--entrypoint='' -v /var/run/docker.sock:/var/run/docker.sock -e HOME=/tmp -e DOCKER_CONFIG=/tmp/.docker"
-        }
-      }
+    stage('Docker Login') {
       steps {
-        sh 'mkdir -p "$DOCKER_CONFIG"'
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
           sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
-          sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
         }
+      }
+    }
+
+    stage('Docker Push') {
+      steps {
+        sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+      }
+    }
+
+    stage('Deploy (docker compose)') {
+      steps {
+        // если деплой на той же машине где Docker (и сокет примонтирован) — работает сразу
+        sh 'docker compose pull'
+        sh 'docker compose up -d'
+        sh 'docker ps | grep todo-app || true'
       }
     }
   }
 
   post {
-    success { echo 'Pipeline finished successfully' }
-    failure { echo 'Pipeline failed' }
+    success { echo '✅ Part 3 done: pushed + deployed' }
+    failure { echo '❌ Pipeline failed' }
+    always  { sh 'docker logout || true' }
   }
 }
