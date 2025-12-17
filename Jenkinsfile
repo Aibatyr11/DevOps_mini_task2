@@ -1,9 +1,14 @@
 pipeline {
   agent none
 
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
   environment {
     IMAGE_NAME = "aibatyr/todo-app"
-    IMAGE_TAG  = "1.0"
+    // IMAGE_TAG выставим динамически после checkout
   }
 
   stages {
@@ -12,6 +17,10 @@ pipeline {
       agent any
       steps {
         checkout scm
+        script {
+          def shortCommit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+          env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortCommit}"
+        }
       }
     }
 
@@ -25,6 +34,11 @@ pipeline {
       }
       steps {
         sh 'mvn -B -Djava.net.preferIPv4Stack=true clean package -DskipTests'
+      }
+      post {
+        success {
+          archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+        }
       }
     }
 
@@ -41,6 +55,23 @@ pipeline {
       }
     }
 
+    stage('Static Analysis (optional)') {
+      when {
+        expression { fileExists('checkstyle.xml') }
+      }
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17-alpine'
+          args  '-u root:root'
+          reuseNode true
+        }
+      }
+      steps {
+        // сработает только если checkstyle реально настроен в проекте
+        sh 'mvn -B checkstyle:check'
+      }
+    }
+
     stage('Docker Build') {
       agent {
         docker {
@@ -50,8 +81,7 @@ pipeline {
         }
       }
       steps {
-        sh 'docker version'
-        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr ."
+        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest -f Dockerfile_BakhitbekovAibatyr ."
       }
     }
 
@@ -67,8 +97,8 @@ pipeline {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
           sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
         }
-
         sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+        sh "docker push ${IMAGE_NAME}:latest"
       }
       post {
         always {
@@ -79,7 +109,10 @@ pipeline {
 
     stage('Deploy (docker compose)') {
       when {
-        expression { fileExists('docker-compose.yml') || fileExists('docker-compose.yaml') }
+        allOf {
+          branch 'main'
+          expression { fileExists('docker-compose_BakhitbekovAibatyr.yml') }
+        }
       }
       agent {
         docker {
@@ -90,20 +123,14 @@ pipeline {
       }
       steps {
         sh 'apk add --no-cache docker-cli-compose || true'
-        sh 'docker compose version || true'
-        sh 'docker compose pull || true'
-        sh 'docker compose up -d'
+        sh 'docker compose -f docker-compose_BakhitbekovAibatyr.yml up -d'
         sh 'docker ps'
       }
     }
   }
 
   post {
-    success {
-      echo '✅ Pipeline success: image built + tested + pushed (+ deployed if compose exists)'
-    }
-    failure {
-      echo '❌ Pipeline failed'
-    }
+    success { echo "✅ SUCCESS: ${IMAGE_NAME}:${IMAGE_TAG}" }
+    failure { echo "❌ FAILED: check logs выше (tests/build/push)" }
   }
 }
