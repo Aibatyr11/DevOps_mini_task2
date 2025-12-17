@@ -8,7 +8,7 @@ pipeline {
 
   environment {
     IMAGE_NAME = "aibatyr/todo-app"
-    // IMAGE_TAG выставим динамически после checkout
+    // IMAGE_TAG зададим после checkout
   }
 
   stages {
@@ -20,6 +20,7 @@ pipeline {
         script {
           def shortCommit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
           env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortCommit}"
+          echo "Tag: ${env.IMAGE_NAME}:${env.IMAGE_TAG}"
         }
       }
     }
@@ -37,6 +38,7 @@ pipeline {
       }
       post {
         success {
+          // артефакт (jar)
           archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
         }
       }
@@ -53,6 +55,12 @@ pipeline {
       steps {
         sh 'mvn -B -Djava.net.preferIPv4Stack=true test'
       }
+      post {
+        always {
+          // отчёты тестов (даже если тесты упали)
+          junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+        }
+      }
     }
 
     stage('Static Analysis (optional)') {
@@ -67,7 +75,6 @@ pipeline {
         }
       }
       steps {
-        // сработает только если checkstyle реально настроен в проекте
         sh 'mvn -B checkstyle:check'
       }
     }
@@ -81,7 +88,11 @@ pipeline {
         }
       }
       steps {
+        sh 'docker version'
+        // страховка: если по какой-то причине IMAGE_TAG пустой
+        sh '[ -n "$IMAGE_TAG" ] || (echo "IMAGE_TAG is empty" && exit 1)'
         sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -t ${IMAGE_NAME}:latest -f Dockerfile_BakhitbekovAibatyr ."
+        sh "docker images | head -n 20"
       }
     }
 
@@ -94,9 +105,13 @@ pipeline {
         }
       }
       steps {
+        // сброс на всякий
+        sh 'docker logout || true'
+
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
           sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
         }
+
         sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
         sh "docker push ${IMAGE_NAME}:latest"
       }
@@ -123,6 +138,7 @@ pipeline {
       }
       steps {
         sh 'apk add --no-cache docker-cli-compose || true'
+        sh 'docker compose version || true'
         sh 'docker compose -f docker-compose_BakhitbekovAibatyr.yml up -d'
         sh 'docker ps'
       }
@@ -130,7 +146,11 @@ pipeline {
   }
 
   post {
-    success { echo "✅ SUCCESS: ${IMAGE_NAME}:${IMAGE_TAG}" }
-    failure { echo "❌ FAILED: check logs выше (tests/build/push)" }
+    success {
+      echo "✅ SUCCESS: pushed ${IMAGE_NAME}:${IMAGE_TAG} (and latest)"
+    }
+    failure {
+      echo "❌ FAILED: check build/test/docker build/push logs above"
+    }
   }
 }
