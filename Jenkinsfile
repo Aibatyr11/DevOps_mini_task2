@@ -1,5 +1,5 @@
 pipeline {
-  agent any
+  agent none
 
   environment {
     IMAGE_NAME = "aibatyr/todo-app"
@@ -7,25 +7,63 @@ pipeline {
   }
 
   stages {
-    stage('Build') {
+
+    stage('Checkout') {
+      agent any
       steps {
-        sh 'mvn -B -Djava.net.preferIPv4Stack=true clean package'
+        checkout scm
       }
     }
 
-    stage('Test') {
+    stage('Build (Maven)') {
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17-alpine'
+          args  '-u root:root'
+          reuseNode true
+        }
+      }
+      steps {
+        sh 'mvn -B -Djava.net.preferIPv4Stack=true clean package -DskipTests'
+      }
+    }
+
+    stage('Test (Maven)') {
+      agent {
+        docker {
+          image 'maven:3.9-eclipse-temurin-17-alpine'
+          args  '-u root:root'
+          reuseNode true
+        }
+      }
       steps {
         sh 'mvn -B -Djava.net.preferIPv4Stack=true test'
       }
     }
 
     stage('Docker Build') {
+      agent {
+        docker {
+          image 'docker:27-cli'
+          // важное: выключаем entrypoint и даём root, чтобы не было ошибок прав на папки
+          args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
+          reuseNode true
+        }
+      }
       steps {
+        sh 'docker version'
         sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr ."
       }
     }
 
     stage('Docker Login') {
+      agent {
+        docker {
+          image 'docker:27-cli'
+          args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
+          reuseNode true
+        }
+      }
       steps {
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
           sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
@@ -34,24 +72,50 @@ pipeline {
     }
 
     stage('Docker Push') {
+      agent {
+        docker {
+          image 'docker:27-cli'
+          args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
+          reuseNode true
+        }
+      }
       steps {
         sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
       }
     }
 
     stage('Deploy (docker compose)') {
+      when {
+        expression { fileExists('docker-compose.yml') || fileExists('docker-compose.yaml') }
+      }
+      agent {
+        docker {
+          image 'docker:27-cli'
+          args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
+          reuseNode true
+        }
+      }
       steps {
-        // если деплой на той же машине где Docker (и сокет примонтирован) — работает сразу
-        sh 'docker compose pull'
+        // compose может быть не установлен в docker:*-cli, поэтому ставим плагин
+        sh 'apk add --no-cache docker-cli-compose || true'
+        sh 'docker compose version || true'
+        sh 'docker compose pull || true'
         sh 'docker compose up -d'
-        sh 'docker ps | grep todo-app || true'
+        sh 'docker ps'
       }
     }
   }
 
   post {
-    success { echo '✅ Part 3 done: pushed + deployed' }
-    failure { echo '❌ Pipeline failed' }
-    always  { sh 'docker logout || true' }
+    always {
+      // безопасно, даже если не логинился
+      sh 'docker logout || true'
+    }
+    success {
+      echo '✅ Part 3 done: image built + pushed (+ deployed if compose exists)'
+    }
+    failure {
+      echo '❌ Pipeline failed'
+    }
   }
 }
