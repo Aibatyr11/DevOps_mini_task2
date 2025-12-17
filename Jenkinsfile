@@ -52,24 +52,6 @@ pipeline {
       steps {
         sh 'docker version'
         sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr ."
-        sh "docker images | grep -E 'todo-app|REPOSITORY' || true"
-      }
-    }
-
-    stage('Docker Login') {
-      agent {
-        docker {
-          image 'docker:27-cli'
-          args '--entrypoint="" -u root:root -v /var/run/docker.sock:/var/run/docker.sock'
-          reuseNode true
-        }
-      }
-      steps {
-        sh 'docker logout || true'
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
-          sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
-        }
-        sh 'docker info | grep -i Username || true'
       }
     }
 
@@ -82,6 +64,10 @@ pipeline {
         }
       }
       steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+          sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
+        }
+
         sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
       }
       post {
