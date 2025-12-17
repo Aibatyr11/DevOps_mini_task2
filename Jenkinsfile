@@ -52,6 +52,7 @@ pipeline {
       steps {
         sh 'docker version'
         sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile_BakhitbekovAibatyr ."
+        sh "docker images | grep -E 'todo-app|REPOSITORY' || true"
       }
     }
 
@@ -64,9 +65,11 @@ pipeline {
         }
       }
       steps {
+        sh 'docker logout || true'
         withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
           sh 'echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin'
         }
+        sh 'docker info | grep -i Username || true'
       }
     }
 
@@ -83,7 +86,6 @@ pipeline {
       }
       post {
         always {
-          // тут есть agent -> sh работает
           sh 'docker logout || true'
         }
       }
