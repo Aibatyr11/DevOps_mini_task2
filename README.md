@@ -30,5 +30,5 @@ flowchart TB
   K8S --> HPA[HPA CPU based]
   SVC --> USER[User or REST Client]
 
-
-фыв
+```
+asd
