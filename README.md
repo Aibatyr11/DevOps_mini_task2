@@ -31,23 +31,4 @@ flowchart TB
   SVC --> USER[User or REST Client]
 
 
-
-
-
-
-
-
-
-
-## Key Components
-
-- **Jenkins** — builds, tests, and pushes Docker images  
-- **Docker Hub** — stores versioned images (`BUILD_NUMBER-SHORT_COMMIT`, `latest`)  
-- **Kubernetes (Minikube)** — runs the application using ConfigMap, Secret, probes, and HPA  
-
----
-
-## Repository Structure
-
-
-
+фыв
