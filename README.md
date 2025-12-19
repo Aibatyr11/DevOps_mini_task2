@@ -1,101 +1,88 @@
-# DevOps Final Project — ToDo App (Jenkins + Docker + Kubernetes + Ansible)
+# DevOps Final Project — ToDo App  
+**Jenkins · Docker · Kubernetes · Ansible**
 
 ## Overview
-This repository contains a production-oriented DevOps pipeline for a Spring Boot ToDo application:
-- CI/CD with Jenkins (build → test → docker build/push → optional deploy)
-- Containerization with Docker
-- Kubernetes deployment on Minikube (Deployment, Service, ConfigMap, Secret, HPA)
-- Infrastructure automation with Ansible (roles + vault)
+This repository demonstrates a production-oriented DevOps pipeline for a Spring Boot **ToDo** application:
+
+- CI/CD pipeline implemented with **Jenkins**
+- Containerization using **Docker**
+- Deployment to **Kubernetes (Minikube)**
+- Infrastructure automation with **Ansible (roles + vault)**
 
 ---
 
 ## Architecture
 
-### High-level diagram (Mermaid)
+### High-level Architecture Diagram
 ```mermaid
 flowchart TB
-  Dev[Developer] -->|git push| GH[GitHub Repo]
-  GH -->|webhook/poll| JENKINS[Jenkins CI/CD]
-  JENKINS -->|mvn build/test| ART[Build Artifacts (JAR)]
+  Dev[Developer] -->|git push| GH[GitHub]
+  GH --> JENKINS[Jenkins CI/CD]
+  JENKINS -->|build & test| ART[JAR Artifact]
   JENKINS -->|docker build| IMG[Docker Image]
-  IMG -->|push| DH[Docker Hub Registry]
+  IMG --> DH[Docker Hub]
 
-  DH -->|pull image| K8S[Kubernetes (Minikube)]
-  K8S --> DEP[Deployment: todo-app]
-  K8S --> SVC[Service: NodePort]
-  K8S --> CM[ConfigMap]
-  K8S --> SEC[Secret]
-  K8S --> HPA[Horizontal Pod Autoscaler]
-  SVC --> USER[User / REST Client]
+  DH --> K8S[Kubernetes (Minikube)]
+  K8S --> DEP[Deployment]
+  K8S --> SVC[Service]
+  K8S --> HPA[HPA]
+  SVC --> USER[Client]
 
-Components
+Key components
 
-Jenkins runs pipeline stages and pushes Docker image to Docker Hub
+Jenkins builds, tests, and pushes Docker images
 
-Docker Hub stores versioned images (BUILD_NUMBER-SHORT_COMMIT + latest)
+Docker Hub stores versioned images (BUILD_NUMBER-SHORT_COMMIT, latest)
 
-Minikube Kubernetes runs the application with:
+Kubernetes runs the app using ConfigMap, Secret, probes, and HPA
 
-ConfigMap for non-sensitive config
+Repository Structure
+Jenkinsfile                  # CI/CD pipeline
+Dockerfile_BakhitbekovAibatyr # Multi-stage Docker build
+k8s/                          # Kubernetes manifests
+k8s/ansible/                  # Ansible automation (roles, playbooks, vault)
 
-Secret for sensitive config
-
-Liveness/Readiness probes
-
-HPA based on CPU usage
-
-Repository Structure (important parts)
-
-Jenkinsfile — CI/CD pipeline
-
-Dockerfile_BakhitbekovAibatyr — multi-stage Docker build
-
-k8s/ — Kubernetes manifests (deployment.yaml, service.yaml, configmap.yaml, secret.yaml, hpa.yaml)
-
-k8s/ansible/ — Ansible automation (playbooks/, roles/, group_vars/)
-
-Step-by-step Setup (Linux VM)
+Step-by-Step Setup (Linux VM)
 Prerequisites
 
-Ubuntu 24.04 VM
+Ubuntu 24.04
 
-Docker installed and running
+Docker
 
-Jenkins installed as a system service
+Jenkins (system service)
 
-Minikube installed (docker driver)
+Minikube (Docker driver)
 
-kubectl installed and configured for minikube
+kubectl
 
-Ansible installed (with kubernetes.core collection)
+Ansible + kubernetes.core collection
 
-1) Clone repository
-
+1. Clone Repository
 git clone https://github.com/Aibatyr11/DevOps_mini_task2
 cd DevOps_mini_task2
 
-2) Jenkins (CI/CD)
+2. Jenkins (CI/CD)
 
-Create a Pipeline job in Jenkins and link it to this repository.
+Create a Pipeline job
+
+Connect it to this repository
 
 Add credentials:
 
-GitHub token (if needed for private repo)
+Docker Hub (dockerhub-creds)
 
-Docker Hub credentials (ID: dockerhub-creds)
+Run Build Now and verify success
 
-Run Build Now and ensure pipeline succeeds.
-
-3) Kubernetes (Minikube)
-
-Start cluster:
+3. Kubernetes (Minikube)
 minikube start --driver=docker
 kubectl config use-context minikube
+
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
 kubectl apply -f k8s/hpa.yaml
+
 
 Check status:
 
@@ -108,48 +95,31 @@ Get service URL:
 
 minikube service todo-app-service --url
 
-4) Ansible (Automation)
+CI/CD Pipeline Flow
 
-Run playbook (local execution):
+Checkout – source code and dynamic image tag
 
-cd k8s/ansible
-ansible-playbook -i inventory/inventory.ini playbooks/site.yml --ask-vault-pass --ask-become-pass
+Build – Maven build, artifact archived
 
-CI/CD Pipeline Flow (Jenkinsfile)
+Test – Maven tests (pipeline fails on error)
 
-Pipeline stages:
+Docker Build – image with dynamic and latest tags
 
-Checkout — pulls source code and creates dynamic tag: BUILD_NUMBER-SHORT_COMMIT
+Docker Push – push to Docker Hub
 
-Build (Maven) — mvn clean package -DskipTests (artifact archived)
+Deploy (optional) – executed only on main branch
 
-Test (Maven) — mvn test (pipeline fails if tests fail)
+Verification Evidence
+Jenkins
 
-Docker Build — builds image with two tags:
+Successful pipeline execution
 
-${IMAGE_TAG} (dynamic)
+Docker image pushed to Docker Hub
 
-latest
-
-Docker Login + Push — pushes both tags to Docker Hub (pipeline fails if push fails)
-
-Deploy (optional) — runs only on main branch if compose file exists
-
-Verification Evidence (Screenshots / Outputs)
-Jenkins pipeline success
-
-Console Output showing successful stages and image pushed.
-
-Kubernetes running workload
+Kubernetes
 kubectl get pods -o wide
 kubectl get svc
 kubectl get hpa
 
-REST endpoint output
-
-After getting the NodePort URL:
-
-curl -i http://<MINIKUBE_IP>:30081/
-
-
-
+Application Endpoint
+curl http://<MINIKUBE_IP>:30081/
