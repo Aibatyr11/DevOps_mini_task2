@@ -32,6 +32,13 @@ flowchart TB
 
 
 
+
+
+
+
+
+
+
 ## Key Components
 
 - **Jenkins** — builds, tests, and pushes Docker images  
