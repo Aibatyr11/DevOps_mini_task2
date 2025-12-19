@@ -16,17 +16,20 @@ This repository demonstrates a production-oriented DevOps pipeline for a Spring 
 ### High-level Architecture Diagram
 ```mermaid
 flowchart TB
-  Dev[Developer] -->|git push| GH[GitHub]
-  GH --> JENKINS[Jenkins CI/CD]
-  JENKINS -->|build & test| ART[JAR Artifact]
+  Dev[Developer] -->|git push| GH[GitHub Repo]
+  GH -->|webhook or poll| JENKINS[Jenkins CI/CD]
+  JENKINS -->|mvn build and test| ART[Build artifact JAR]
   JENKINS -->|docker build| IMG[Docker Image]
-  IMG --> DH[Docker Hub]
+  IMG -->|push| DH[Docker Hub]
 
-  DH --> K8S[Kubernetes (Minikube)]
-  K8S --> DEP[Deployment]
-  K8S --> SVC[Service]
-  K8S --> HPA[HPA]
-  SVC --> USER[Client]
+  DH -->|pull| K8S[Kubernetes - Minikube]
+  K8S --> DEP[Deployment todo-app]
+  K8S --> SVC[Service NodePort]
+  K8S --> CM[ConfigMap]
+  K8S --> SEC[Secret]
+  K8S --> HPA[HPA CPU based]
+  SVC --> USER[User or REST Client]
+
 
 Key components
 
